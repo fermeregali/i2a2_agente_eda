@@ -70,8 +70,7 @@ agente-eda/
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/fermeregali/agente-eda.git
-cd agente-eda
+git clone https://github.com/fermeregali/i2a2_agente_eda
 
 # 2. Instalação automática
 ./install.sh
