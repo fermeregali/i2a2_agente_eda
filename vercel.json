@@ -22,11 +22,5 @@
       "src": "/(.*)",
       "dest": "/build/$1"
     }
-  ],
-  "env": {
-    "GROQ_API_KEY": "@groq_api_key",
-    "MONGO_URL": "@mongo_url",
-    "DB_NAME": "@db_name",
-    "CORS_ORIGINS": "@cors_origins"
-  }
+  ]
 }
