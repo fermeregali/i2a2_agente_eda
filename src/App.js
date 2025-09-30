@@ -167,7 +167,10 @@ function App() {
   const chatContainerRef = useRef(null);
 
   // Configurar axios base URL
-  axios.defaults.baseURL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  const apiUrl = process.env.NODE_ENV === 'production' 
+    ? window.location.origin 
+    : process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  axios.defaults.baseURL = apiUrl;
 
   // Scroll automático para o final do chat
   useEffect(() => {
