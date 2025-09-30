@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     },
     {
@@ -16,7 +16,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
@@ -28,10 +28,5 @@
     "MONGO_URL": "@mongo_url",
     "DB_NAME": "@db_name",
     "CORS_ORIGINS": "@cors_origins"
-  },
-  "functions": {
-    "api.py": {
-      "maxDuration": 30
-    }
   }
 }
