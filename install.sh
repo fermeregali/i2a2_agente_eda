@@ -31,7 +31,7 @@ source venv/bin/activate
 # Instalar dependências Python
 echo "📚 Instalando dependências Python..."
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r api/requirements.txt
 
 # Instalar dependências Node.js
 echo "📚 Instalando dependências Node.js..."
@@ -40,8 +40,20 @@ npm install
 # Criar arquivo .env se não existir
 if [ ! -f .env ]; then
     echo "⚙️ Criando arquivo de configuração..."
-    cp config.env .env
-    echo "✅ Arquivo .env criado com configurações padrão"
+    if [ -f config.env ]; then
+        cp config.env .env
+        echo "✅ Arquivo .env criado com configurações padrão"
+    else
+        echo "❌ Arquivo config.env não encontrado"
+        echo "📝 Criando arquivo .env com configurações básicas..."
+        cat > .env << EOF
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=agente_eda_db
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+GROQ_API_KEY=sua_chave_groq_aqui
+EOF
+        echo "✅ Arquivo .env criado. Configure sua GROQ_API_KEY no arquivo .env"
+    fi
 fi
 
 echo ""
@@ -50,7 +62,8 @@ echo ""
 echo "Para executar o sistema:"
 echo "1. Backend (Terminal 1):"
 echo "   source venv/bin/activate"
-echo "   python main.py"
+echo "   cd api"
+echo "   python -m uvicorn index:app --reload --host 0.0.0.0 --port 8000"
 echo ""
 echo "2. Frontend (Terminal 2):"
 echo "   npm start"
@@ -58,3 +71,6 @@ echo ""
 echo "3. Acesse: http://localhost:3000"
 echo ""
 echo "📊 Sistema pronto para análise de dados!"
+echo ""
+echo "💡 Para deploy na Vercel:"
+echo "   vercel --prod"

@@ -1,28 +1,18 @@
 """
 Agente Inteligente para Análise de Dados - EDA Automático
-Versão otimizada para Vercel
+Versão otimizada para Vercel (sem dependências pesadas de visualização)
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
-# Configuração para matplotlib funcionar em backend
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-
 # Outras bibliotecas úteis
 import io
-import base64
 import json
 import os
 import uuid
@@ -35,7 +25,8 @@ from pathlib import Path
 try:
     from motor.motor_asyncio import AsyncIOMotorClient
     from dotenv import load_dotenv
-    # Carregar variáveis de ambiente da Vercel
+    # Carregar variáveis de ambiente
+    load_dotenv()
     MONGODB_AVAILABLE = True
 except ImportError:
     MONGODB_AVAILABLE = False
@@ -53,10 +44,11 @@ app = FastAPI(
 )
 
 # Configurar CORS para o frontend conseguir acessar
-# Na Vercel, usar o domínio da aplicação
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 if "VERCEL_URL" in os.environ:
     cors_origins.append(f"https://{os.environ['VERCEL_URL']}")
+if "VERCEL_BRANCH_URL" in os.environ:
+    cors_origins.append(f"https://{os.environ['VERCEL_BRANCH_URL']}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,8 +77,9 @@ class ChatMessage(BaseModel):
 
 class AnalysisResponse(BaseModel):
     response: str
-    charts: Optional[List[Dict]] = []
     statistics: Optional[Dict] = {}
+    insights: Optional[List[str]] = []
+    charts: Optional[List[Dict]] = []
 
 class SessionData(BaseModel):
     session_id: str
@@ -165,73 +158,148 @@ class DataAnalyzer:
             return correlation.to_dict()
         return {}
     
-    def create_histogram(self, column: str):
-        """Cria histograma para uma coluna"""
+    def generate_insights(self):
+        """Gera insights básicos sobre os dados"""
+        insights = []
+        
+        # Insights sobre valores ausentes
+        missing_data = self.df.isnull().sum()
+        high_missing = missing_data[missing_data > len(self.df) * 0.5]
+        if not high_missing.empty:
+            insights.append(f"⚠️ Colunas com mais de 50% de valores ausentes: {', '.join(high_missing.index)}")
+        
+        # Insights sobre outliers
+        outliers = self.find_outliers()
+        high_outliers = {k: v for k, v in outliers.items() if v['percentage'] > 10}
+        if high_outliers:
+            insights.append(f"📊 Colunas com muitos outliers (>10%): {', '.join(high_outliers.keys())}")
+        
+        # Insights sobre correlações
+        correlations = self.get_correlations()
+        if correlations:
+            # Encontrar correlações fortes
+            strong_correlations = []
+            for col1 in correlations:
+                for col2 in correlations[col1]:
+                    if col1 != col2 and abs(correlations[col1][col2]) > 0.7:
+                        strong_correlations.append(f"{col1} ↔ {col2} ({correlations[col1][col2]:.2f})")
+            
+            if strong_correlations:
+                insights.append(f"🔗 Correlações fortes encontradas: {'; '.join(strong_correlations[:3])}")
+        
+        # Insights sobre distribuição
+        if self.numeric_columns:
+            insights.append(f"📈 {len(self.numeric_columns)} colunas numéricas disponíveis para análise")
+        
+        if self.categorical_columns:
+            insights.append(f"📝 {len(self.categorical_columns)} colunas categóricas disponíveis para análise")
+        
+        return insights
+    
+    def create_histogram_data(self, column: str):
+        """Cria dados para histograma"""
         if column not in self.df.columns:
             return None
         
-        plt.figure(figsize=(10, 6))
-        plt.hist(self.df[column].dropna(), bins=30, alpha=0.7, edgecolor='black')
-        plt.title(f'Distribuição de {column}')
-        plt.xlabel(column)
-        plt.ylabel('Frequência')
-        plt.grid(True, alpha=0.3)
+        data = self.df[column].dropna()
+        if data.empty:
+            return None
         
-        # Converter para base64 para enviar via API
-        img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
-        img_buffer.seek(0)
-        img_base64 = base64.b64encode(img_buffer.read()).decode()
-        plt.close()
-        
-        return img_base64
+        return {
+            "type": "histogram",
+            "title": f"Distribuição de {column}",
+            "data": {
+                "x": data.tolist(),
+                "type": "histogram",
+                "name": column,
+                "nbinsx": 30
+            },
+            "layout": {
+                "title": f"Distribuição de {column}",
+                "xaxis": {"title": column},
+                "yaxis": {"title": "Frequência"}
+            }
+        }
     
-    def create_correlation_heatmap(self):
-        """Cria heatmap de correlação"""
+    def create_correlation_heatmap_data(self):
+        """Cria dados para heatmap de correlação"""
         if len(self.numeric_columns) < 2:
             return None
         
-        plt.figure(figsize=(12, 8))
         correlation = self.df[self.numeric_columns].corr()
-        sns.heatmap(correlation, annot=True, cmap='coolwarm', center=0, 
-                   square=True, linewidths=0.5)
-        plt.title('Matriz de Correlação')
-        plt.tight_layout()
         
-        img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
-        img_buffer.seek(0)
-        img_base64 = base64.b64encode(img_buffer.read()).decode()
-        plt.close()
-        
-        return img_base64
+        return {
+            "type": "heatmap",
+            "title": "Matriz de Correlação",
+            "data": {
+                "z": correlation.values.tolist(),
+                "x": correlation.columns.tolist(),
+                "y": correlation.index.tolist(),
+                "type": "heatmap",
+                "colorscale": "RdBu",
+                "zmid": 0
+            },
+            "layout": {
+                "title": "Matriz de Correlação",
+                "xaxis": {"title": ""},
+                "yaxis": {"title": ""}
+            }
+        }
     
-    def create_scatter_plot(self, x_col: str, y_col: str, color_col: str = None):
-        """Cria gráfico de dispersão"""
+    def create_scatter_plot_data(self, x_col: str, y_col: str, color_col: str = None):
+        """Cria dados para gráfico de dispersão"""
         if x_col not in self.df.columns or y_col not in self.df.columns:
             return None
         
-        plt.figure(figsize=(10, 6))
+        data = {
+            "type": "scatter",
+            "title": f"{y_col} vs {x_col}",
+            "data": {
+                "x": self.df[x_col].dropna().tolist(),
+                "y": self.df[y_col].dropna().tolist(),
+                "mode": "markers",
+                "name": f"{y_col} vs {x_col}"
+            },
+            "layout": {
+                "title": f"{y_col} vs {x_col}",
+                "xaxis": {"title": x_col},
+                "yaxis": {"title": y_col}
+            }
+        }
         
         if color_col and color_col in self.df.columns:
-            scatter = plt.scatter(self.df[x_col], self.df[y_col], 
-                                c=self.df[color_col], alpha=0.6, cmap='viridis')
-            plt.colorbar(scatter, label=color_col)
-        else:
-            plt.scatter(self.df[x_col], self.df[y_col], alpha=0.6)
+            data["data"]["marker"] = {
+                "color": self.df[color_col].dropna().tolist(),
+                "colorscale": "Viridis",
+                "showscale": True,
+                "colorbar": {"title": color_col}
+            }
         
-        plt.xlabel(x_col)
-        plt.ylabel(y_col)
-        plt.title(f'{y_col} vs {x_col}')
-        plt.grid(True, alpha=0.3)
+        return data
+    
+    def create_box_plot_data(self, column: str):
+        """Cria dados para box plot"""
+        if column not in self.df.columns:
+            return None
         
-        img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
-        img_buffer.seek(0)
-        img_base64 = base64.b64encode(img_buffer.read()).decode()
-        plt.close()
+        data = self.df[column].dropna()
+        if data.empty:
+            return None
         
-        return img_base64
+        return {
+            "type": "box",
+            "title": f"Box Plot de {column}",
+            "data": {
+                "y": data.tolist(),
+                "type": "box",
+                "name": column,
+                "boxpoints": "outliers"
+            },
+            "layout": {
+                "title": f"Box Plot de {column}",
+                "yaxis": {"title": column}
+            }
+        }
 
 # Função para conversar com a IA
 async def ask_ai(question: str, dataset_info: Dict, conversation_history: List = None):
@@ -269,9 +337,15 @@ async def ask_ai(question: str, dataset_info: Dict, conversation_history: List =
                 Sua função:
                 - Analisar dados e identificar padrões
                 - Detectar anomalias e outliers  
-                - Sugerir visualizações úteis
+                - Sugerir análises úteis
                 - Dar insights baseados nos dados
                 - Responder em português de forma clara
+                
+                IMPORTANTE: Como não temos visualizações disponíveis, foque em:
+                - Análises estatísticas
+                - Insights sobre correlações
+                - Identificação de padrões
+                - Sugestões de limpeza de dados
                 
                 Seja técnico mas acessível."""
             },
@@ -366,6 +440,7 @@ async def load_sample_file(filename: str):
         descriptive_stats = analyzer.get_descriptive_stats()
         outliers_info = analyzer.find_outliers()
         correlation_matrix = analyzer.get_correlations()
+        insights = analyzer.generate_insights()
         
         # Salvar dados da sessão
         datasets_storage[session_id] = {
@@ -375,6 +450,7 @@ async def load_sample_file(filename: str):
             "descriptive_stats": descriptive_stats,
             "outliers_info": outliers_info,
             "correlation_matrix": correlation_matrix,
+            "insights": insights,
             "uploaded_at": datetime.now(),
             "source_file": filename
         }
@@ -394,6 +470,7 @@ async def load_sample_file(filename: str):
             "session_id": session_id,
             "basic_info": basic_info,
             "initial_analysis": initial_analysis,
+            "insights": insights,
             "message": f"Dataset {filename} carregado! {basic_info['shape'][0]} linhas, {basic_info['shape'][1]} colunas.",
             "source_file": filename
         }
@@ -444,6 +521,7 @@ async def upload_csv(file: UploadFile = File(...)):
         descriptive_stats = analyzer.get_descriptive_stats()
         outliers_info = analyzer.find_outliers()
         correlation_matrix = analyzer.get_correlations()
+        insights = analyzer.generate_insights()
         
         datasets_storage[session_id] = {
             "dataframe": df,
@@ -452,6 +530,7 @@ async def upload_csv(file: UploadFile = File(...)):
             "descriptive_stats": descriptive_stats,
             "outliers_info": outliers_info,
             "correlation_matrix": correlation_matrix,
+            "insights": insights,
             "uploaded_at": datetime.now()
         }
         
@@ -470,6 +549,7 @@ async def upload_csv(file: UploadFile = File(...)):
             "session_id": session_id,
             "basic_info": basic_info,
             "initial_analysis": initial_analysis,
+            "insights": insights,
             "message": f"Dataset carregado! {basic_info['shape'][0]} linhas, {basic_info['shape'][1]} colunas."
         }
         
@@ -505,42 +585,58 @@ async def chat_with_data(message: ChatMessage):
         # Perguntar para IA
         ai_response = await ask_ai(user_message, basic_info, conversation_history)
         
-        # Gerar gráficos baseados na pergunta
+        # Gerar gráficos e insights baseados na pergunta
         charts = []
+        insights = []
         message_lower = user_message.lower()
         
-        # Detectar tipo de gráfico necessário
+        # Detectar tipo de análise necessária
         if "histograma" in message_lower or "distribuição" in message_lower:
-            for col in analyzer.numeric_columns[:3]:
-                chart_data = analyzer.create_histogram(col)
+            for col in analyzer.numeric_columns[:3]:  # Máximo 3 histogramas
+                chart_data = analyzer.create_histogram_data(col)
                 if chart_data:
-                    charts.append({
-                        "type": "histogram",
-                        "title": f"Distribuição de {col}",
-                        "data": chart_data
-                    })
+                    charts.append(chart_data)
         
-        elif "correlação" in message_lower:
-            heatmap_data = analyzer.create_correlation_heatmap()
+        elif "correlação" in message_lower or "heatmap" in message_lower:
+            heatmap_data = analyzer.create_correlation_heatmap_data()
             if heatmap_data:
-                charts.append({
-                    "type": "heatmap",
-                    "title": "Matriz de Correlação",
-                    "data": heatmap_data
-                })
+                charts.append(heatmap_data)
+            insights.append("Análise de correlação disponível para colunas numéricas")
         
         elif "dispersão" in message_lower or "scatter" in message_lower:
             if len(analyzer.numeric_columns) >= 2:
-                scatter_data = analyzer.create_scatter_plot(
+                scatter_data = analyzer.create_scatter_plot_data(
                     analyzer.numeric_columns[0], 
                     analyzer.numeric_columns[1]
                 )
                 if scatter_data:
-                    charts.append({
-                        "type": "scatter",
-                        "title": f"{analyzer.numeric_columns[1]} vs {analyzer.numeric_columns[0]}",
-                        "data": scatter_data
-                    })
+                    charts.append(scatter_data)
+        
+        elif "box" in message_lower or "quartis" in message_lower:
+            for col in analyzer.numeric_columns[:2]:  # Máximo 2 box plots
+                box_data = analyzer.create_box_plot_data(col)
+                if box_data:
+                    charts.append(box_data)
+        
+        elif "outliers" in message_lower or "anomalias" in message_lower:
+            outliers = session_data["outliers_info"]
+            for col, info in outliers.items():
+                if info["count"] > 0:
+                    insights.append(f"Coluna {col}: {info['count']} outliers ({info['percentage']:.1f}%)")
+                    # Adicionar box plot para mostrar outliers
+                    box_data = analyzer.create_box_plot_data(col)
+                    if box_data:
+                        charts.append(box_data)
+        
+        elif "estatísticas" in message_lower or "stats" in message_lower:
+            stats = session_data["descriptive_stats"]
+            if "numeric" in stats:
+                insights.append(f"Estatísticas descritivas para {len(stats['numeric'])} colunas numéricas")
+                # Adicionar histogramas para as principais colunas numéricas
+                for col in analyzer.numeric_columns[:2]:
+                    chart_data = analyzer.create_histogram_data(col)
+                    if chart_data:
+                        charts.append(chart_data)
         
         # Estatísticas
         statistics = {
@@ -553,14 +649,15 @@ async def chat_with_data(message: ChatMessage):
         conversation_history.append({
             "type": "assistant",
             "content": ai_response,
-            "charts": charts,
+            "insights": insights,
             "timestamp": datetime.now()
         })
         
         return AnalysisResponse(
             response=ai_response,
-            charts=charts,
-            statistics=statistics
+            statistics=statistics,
+            insights=insights,
+            charts=charts
         )
         
     except Exception as e:
@@ -578,6 +675,7 @@ async def get_session_info(session_id: str):
         "basic_info": session_data["basic_info"],
         "descriptive_stats": session_data["descriptive_stats"],
         "outliers_info": session_data["outliers_info"],
+        "insights": session_data["insights"],
         "uploaded_at": session_data["uploaded_at"]
     }
 
@@ -608,6 +706,32 @@ async def health_check():
         "active_sessions": len(datasets_storage),
         "mongodb_connected": database is not None
     }
+
+@app.get("/api/test-chart")
+async def test_chart():
+    """Endpoint de teste para verificar geração de gráficos"""
+    # Criar dados de teste
+    import numpy as np
+    test_data = np.random.normal(100, 15, 1000)
+    
+    # Criar histograma de teste
+    chart_data = {
+        "type": "histogram",
+        "title": "Teste de Histograma",
+        "data": {
+            "x": test_data.tolist(),
+            "type": "histogram",
+            "name": "Dados de Teste",
+            "nbinsx": 30
+        },
+        "layout": {
+            "title": "Teste de Histograma",
+            "xaxis": {"title": "Valores"},
+            "yaxis": {"title": "Frequência"}
+        }
+    }
+    
+    return {"chart": chart_data}
 
 @app.get("/")
 async def root():

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import Plot from 'react-plotly.js';
 import './App.css';
 
 // Componente para upload de arquivo
@@ -76,16 +77,50 @@ const FileUpload = ({ onFileUpload, isUploading }) => {
   );
 };
 
+// Componente para exibir insights
+const InsightsDisplay = ({ insights }) => {
+  if (!insights || insights.length === 0) return null;
+  
+  return (
+    <div className="insights-container mb-4">
+      <h4 className="text-sm font-medium text-gray-700 mb-2">💡 Insights Automáticos</h4>
+      <div className="space-y-2">
+        {insights.map((insight, index) => (
+          <div key={index} className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
+            <p className="text-sm text-gray-700">{insight}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Componente para exibir gráficos
 const ChartDisplay = ({ chart }) => {
+  if (!chart || !chart.data) return null;
+  
+  console.log('Chart data:', chart); // Debug
+  
   return (
     <div className="chart-container mb-4">
       <h4 className="text-sm font-medium text-gray-700 mb-2">{chart.title}</h4>
-      <img 
-        src={`data:image/png;base64,${chart.data}`} 
-        alt={chart.title}
-        className="w-full h-auto rounded-lg shadow-sm"
-      />
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <Plot
+          data={[chart.data]}
+          layout={{
+            ...chart.layout,
+            autosize: true,
+            margin: { l: 50, r: 50, t: 50, b: 50 }
+          }}
+          style={{ width: '100%', height: '400px' }}
+          config={{
+            displayModeBar: true,
+            displaylogo: false,
+            responsive: true,
+            modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+          }}
+        />
+      </div>
     </div>
   );
 };
@@ -100,6 +135,11 @@ const MessageBubble = ({ message, isUser }) => {
           : 'assistant-message text-white'
       }`}>
         <div className="whitespace-pre-wrap">{message.content}</div>
+        {message.insights && message.insights.length > 0 && (
+          <div className="mt-3">
+            <InsightsDisplay insights={message.insights} />
+          </div>
+        )}
         {message.charts && message.charts.length > 0 && (
           <div className="mt-3 space-y-3">
             {message.charts.map((chart, index) => (
@@ -202,7 +242,7 @@ function App() {
         content: `📊 Dataset carregado com sucesso!\n\n${response.data.message}\n\n${response.data.initial_analysis}`,
         timestamp: new Date(),
         isUser: false,
-        charts: []
+        insights: response.data.insights || []
       };
       
       setMessages([initialMessage]);
@@ -239,6 +279,7 @@ function App() {
         content: response.data.response,
         timestamp: new Date(),
         isUser: false,
+        insights: response.data.insights || [],
         charts: response.data.charts || []
       };
 
@@ -250,6 +291,7 @@ function App() {
         content: `❌ Erro: ${err.response?.data?.detail || 'Erro ao processar mensagem'}`,
         timestamp: new Date(),
         isUser: false,
+        insights: [],
         charts: []
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -311,7 +353,7 @@ function App() {
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• Análise estatística completa dos seus dados</li>
                   <li>• Detecção automática de outliers e anomalias</li>
-                  <li>• Geração de gráficos e visualizações</li>
+                  <li>• Geração de gráficos e visualizações interativas</li>
                   <li>• Análise de correlações entre variáveis</li>
                   <li>• Identificação de padrões e tendências</li>
                   <li>• Conclusões inteligentes baseadas nos dados</li>
