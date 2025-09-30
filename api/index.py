@@ -23,11 +23,10 @@ from pathlib import Path
 
 # Banco de dados - MongoDB se estiver disponível
 try:
-    from motor.motor_asyncio import AsyncIOMotorClient
     from dotenv import load_dotenv
     # Carregar variáveis de ambiente
     load_dotenv()
-    MONGODB_AVAILABLE = True
+    MONGODB_AVAILABLE = False  # Desabilitado para Vercel
 except ImportError:
     MONGODB_AVAILABLE = False
     print("Aviso: MongoDB não disponível, usando armazenamento em memória")
