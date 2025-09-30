@@ -18,6 +18,26 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
+# Verificar e ajustar limite de file watchers (solução para erro ENOSPC)
+echo "🔧 Verificando limite de file watchers..."
+CURRENT_LIMIT=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo "8192")
+if [ "$CURRENT_LIMIT" -lt 524288 ]; then
+    echo "⚠️ Limite de file watchers muito baixo ($CURRENT_LIMIT). Ajustando..."
+    echo "💡 Para resolver permanentemente, execute:"
+    echo "   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf"
+    echo "   sudo sysctl -p"
+    echo ""
+    echo "🔄 Tentando ajuste temporário..."
+    if command -v sudo &> /dev/null; then
+        sudo sysctl fs.inotify.max_user_watches=524288 2>/dev/null || echo "⚠️ Não foi possível ajustar automaticamente"
+    else
+        echo "⚠️ sudo não disponível. Execute manualmente:"
+        echo "   sudo sysctl fs.inotify.max_user_watches=524288"
+    fi
+else
+    echo "✅ Limite de file watchers adequado ($CURRENT_LIMIT)"
+fi
+
 echo "✅ Pré-requisitos verificados"
 
 # Criar ambiente virtual Python
