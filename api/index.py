@@ -599,11 +599,16 @@ async def load_sample_file(filename: str):
             save_session_to_db(session_id, sessions_storage[session_id])
             logger.info(f"📊 Sessão {session_id} salva no MongoDB")
         
-        # Análise inicial automática
-        initial_analysis = await ask_ai(
-            "Faça uma análise inicial deste dataset, destacando pontos importantes",
-            basic_info
-        )
+        # Análise inicial automática (opcional - não falha se IA tiver problema)
+        try:
+            initial_analysis = await ask_ai(
+                "Faça uma análise inicial deste dataset, destacando pontos importantes",
+                basic_info
+            )
+            logger.info("✅ Análise da IA concluída")
+        except Exception as ai_error:
+            logger.error(f"⚠️ Erro na IA (não crítico): {ai_error}")
+            initial_analysis = "📊 Dataset carregado com sucesso!\n\n⚠️ Análise automática temporariamente indisponível.\n\nVocê pode fazer perguntas sobre seus dados no chat abaixo."
         
         return {
             "session_id": session_id,
@@ -684,11 +689,16 @@ async def upload_csv(file: UploadFile = File(...)):
             save_session_to_db(session_id, sessions_storage[session_id])
             logger.info(f"📊 Sessão {session_id} salva no MongoDB")
         
-        # Análise inicial
-        initial_analysis = await ask_ai(
-            "Analise este dataset e dê um resumo geral",
-            basic_info
-        )
+        # Análise inicial (opcional - não falha se IA tiver problema)
+        try:
+            initial_analysis = await ask_ai(
+                "Analise este dataset e dê um resumo geral",
+                basic_info
+            )
+            logger.info("✅ Análise da IA concluída")
+        except Exception as ai_error:
+            logger.error(f"⚠️ Erro na IA (não crítico): {ai_error}")
+            initial_analysis = "📊 Dataset carregado com sucesso!\n\n⚠️ Análise automática temporariamente indisponível.\n\nVocê pode fazer perguntas sobre seus dados no chat abaixo."
         
         return {
             "session_id": session_id,
