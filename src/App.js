@@ -212,6 +212,15 @@ function App() {
     : process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
   axios.defaults.baseURL = apiUrl;
 
+  // Log de configuração (útil para debug)
+  useEffect(() => {
+    console.log('🔧 Configuração da Aplicação:');
+    console.log('  - Ambiente:', process.env.NODE_ENV);
+    console.log('  - API URL:', apiUrl);
+    console.log('  - Origin:', window.location.origin);
+    console.log('  - Backend URL:', process.env.REACT_APP_BACKEND_URL || 'não definida');
+  }, [apiUrl]);
+
   // Scroll automático para o final do chat
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -221,18 +230,25 @@ function App() {
 
   // Função para upload de arquivo
   const handleFileUpload = async (file) => {
+    console.log('📤 Iniciando upload do arquivo:', file.name);
+    console.log('📏 Tamanho:', (file.size / 1024).toFixed(2), 'KB');
+    
     setIsUploading(true);
     setError(null);
     
     try {
       const formData = new FormData();
       formData.append('file', file);
+      
+      console.log('🚀 Enviando requisição para:', `${apiUrl}/api/upload-csv`);
 
       const response = await axios.post('/api/upload-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      console.log('✅ Upload bem-sucedido:', response.data);
 
       setSessionId(response.data.session_id);
       setDatasetInfo(response.data.basic_info);
@@ -248,7 +264,15 @@ function App() {
       setMessages([initialMessage]);
       
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao carregar arquivo');
+      console.error('❌ Erro no upload:', err);
+      console.error('❌ Status:', err.response?.status);
+      console.error('❌ Dados do erro:', err.response?.data);
+      console.error('❌ Headers:', err.response?.headers);
+      
+      const errorMessage = err.response?.data?.detail || 
+                          err.message || 
+                          'Erro ao carregar arquivo';
+      setError(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -257,6 +281,8 @@ function App() {
   // Função para enviar mensagem
   const handleSendMessage = async (message = currentMessage) => {
     if (!message.trim() || !sessionId || isSending) return;
+
+    console.log('💬 Enviando mensagem:', message);
 
     const userMessage = {
       content: message,
@@ -270,10 +296,14 @@ function App() {
     setError(null);
 
     try {
+      console.log('🚀 Requisição para:', `${apiUrl}/api/chat`);
+      
       const response = await axios.post('/api/chat', {
         message: message,
         session_id: sessionId
       });
+
+      console.log('✅ Resposta recebida:', response.data);
 
       const assistantMessage = {
         content: response.data.response,
@@ -286,9 +316,15 @@ function App() {
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao processar mensagem');
+      console.error('❌ Erro no chat:', err);
+      console.error('❌ Status:', err.response?.status);
+      console.error('❌ Dados do erro:', err.response?.data);
+      
+      const errorDetail = err.response?.data?.detail || 'Erro ao processar mensagem';
+      setError(errorDetail);
+      
       const errorMessage = {
-        content: `❌ Erro: ${err.response?.data?.detail || 'Erro ao processar mensagem'}`,
+        content: `❌ Erro: ${errorDetail}`,
         timestamp: new Date(),
         isUser: false,
         insights: [],
