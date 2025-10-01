@@ -31,18 +31,20 @@ python-3.12.0
 Adicionadas configurações otimizadas:
 ```json
 {
-  "config": {
-    "maxLambdaSize": "50mb",
-    "runtime": "python3.12"
-  },
-  "functions": {
-    "api/index.py": {
-      "memory": 3008,
-      "maxDuration": 60
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
     }
-  }
+  ]
 }
 ```
+
+**Nota:** Removida a propriedade `functions` pois não pode ser usada junto com `builds`.
 
 #### 4. Criado requirements-minimal.txt (Plano B)
 Caso ainda tenha problemas, você pode usar versões mais flexíveis.
@@ -83,6 +85,18 @@ git push origin main
 2. Selecione seu projeto
 3. Vá em "Deployments"
 4. Clique em "Redeploy" no último deployment
+
+---
+
+## Problemas Conhecidos e Soluções
+
+### ❌ Erro: "functions property cannot be used with builds property"
+
+**Causa:** A Vercel não permite usar `functions` e `builds` juntos no `vercel.json`.
+
+**Solução:** ✅ **JÁ CORRIGIDO** - Removida a propriedade `functions` do `vercel.json`.
+
+Se você editou manualmente o arquivo, certifique-se de que ele **não** contenha a propriedade `functions` quando usar `builds`.
 
 ---
 
