@@ -24,12 +24,27 @@ from pathlib import Path
 # Banco de dados - MongoDB se estiver disponível
 try:
     from dotenv import load_dotenv
-    # Carregar variáveis de ambiente
     load_dotenv()
-    MONGODB_AVAILABLE = False  # Desabilitado para Vercel
-except ImportError:
+    
+    # Verificar se deve usar MongoDB
+    USE_MONGODB = os.getenv("USE_MONGODB", "false").lower() == "true"
+    
+    if USE_MONGODB:
+        try:
+            from pymongo import MongoClient
+            from pymongo.errors import ConnectionFailure
+            MONGODB_AVAILABLE = True
+            logger.info("✅ PyMongo disponível - MongoDB habilitado")
+        except ImportError:
+            MONGODB_AVAILABLE = False
+            logger.warning("⚠️ PyMongo não encontrado - usando armazenamento em memória")
+    else:
+        MONGODB_AVAILABLE = False
+        logger.info("ℹ️ MongoDB desabilitado - usando armazenamento em memória")
+        
+except Exception as e:
     MONGODB_AVAILABLE = False
-    print("Aviso: MongoDB não disponível, usando armazenamento em memória")
+    logger.warning(f"⚠️ Erro ao configurar MongoDB: {e} - usando armazenamento em memória")
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -43,11 +58,26 @@ app = FastAPI(
 )
 
 # Configurar CORS para o frontend conseguir acessar
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-if "VERCEL_URL" in os.environ:
-    cors_origins.append(f"https://{os.environ['VERCEL_URL']}")
-if "VERCEL_BRANCH_URL" in os.environ:
-    cors_origins.append(f"https://{os.environ['VERCEL_BRANCH_URL']}")
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+if cors_origins_env == "*":
+    # Permitir todas as origens em modo de debug
+    cors_origins = ["*"]
+    logger.info("CORS configurado para aceitar todas as origens (*)")
+else:
+    # Usar origens específicas da variável de ambiente
+    cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+    # Adicionar URLs automáticas da Vercel
+    if "VERCEL_URL" in os.environ:
+        vercel_url = f"https://{os.environ['VERCEL_URL']}"
+        if vercel_url not in cors_origins:
+            cors_origins.append(vercel_url)
+            logger.info(f"Adicionado VERCEL_URL ao CORS: {vercel_url}")
+    if "VERCEL_BRANCH_URL" in os.environ:
+        branch_url = f"https://{os.environ['VERCEL_BRANCH_URL']}"
+        if branch_url not in cors_origins:
+            cors_origins.append(branch_url)
+            logger.info(f"Adicionado VERCEL_BRANCH_URL ao CORS: {branch_url}")
+    logger.info(f"CORS configurado com origens: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,6 +98,110 @@ database = None
 # Armazenamento em memória (fallback)
 datasets_storage = {}
 sessions_storage = {}
+
+# Função para inicializar MongoDB
+def init_mongodb():
+    """Inicializa conexão com MongoDB"""
+    global mongo_client, database
+    
+    if not MONGODB_AVAILABLE:
+        return False
+    
+    try:
+        logger.info(f"🔌 Conectando ao MongoDB...")
+        mongo_client = MongoClient(
+            MONGO_URL,
+            serverSelectionTimeoutMS=5000,  # Timeout de 5 segundos
+            connectTimeoutMS=10000
+        )
+        
+        # Testar conexão
+        mongo_client.admin.command('ping')
+        
+        database = mongo_client[DB_NAME]
+        logger.info(f"✅ MongoDB conectado! Banco: {DB_NAME}")
+        
+        # Criar índices se necessário
+        database.sessions.create_index("session_id", unique=True)
+        database.datasets.create_index("session_id")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao conectar MongoDB: {e}")
+        logger.info("📦 Usando armazenamento em memória como fallback")
+        mongo_client = None
+        database = None
+        return False
+
+# Inicializar MongoDB se disponível
+if MONGODB_AVAILABLE:
+    init_mongodb()
+
+# Funções auxiliares para salvar/carregar do MongoDB
+def save_session_to_db(session_id: str, session_data: dict):
+    """Salva sessão no MongoDB"""
+    if database is None:
+        return False
+    
+    try:
+        database.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "session_id": session_id,
+                "created_at": session_data.get("created_at", datetime.now()),
+                "conversation_history": session_data.get("conversation_history", []),
+                "updated_at": datetime.now()
+            }},
+            upsert=True
+        )
+        logger.debug(f"💾 Sessão {session_id} salva no MongoDB")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar sessão no MongoDB: {e}")
+        return False
+
+def save_dataset_to_db(session_id: str, dataset_data: dict):
+    """Salva metadados do dataset no MongoDB"""
+    if database is None:
+        return False
+    
+    try:
+        # Não salvar o DataFrame (muito grande), apenas metadados
+        metadata = {
+            "session_id": session_id,
+            "basic_info": dataset_data.get("basic_info", {}),
+            "descriptive_stats": dataset_data.get("descriptive_stats", {}),
+            "outliers_info": dataset_data.get("outliers_info", {}),
+            "correlation_matrix": dataset_data.get("correlation_matrix", {}),
+            "insights": dataset_data.get("insights", []),
+            "uploaded_at": dataset_data.get("uploaded_at", datetime.now()),
+            "source_file": dataset_data.get("source_file", "upload"),
+            "updated_at": datetime.now()
+        }
+        
+        database.datasets.update_one(
+            {"session_id": session_id},
+            {"$set": metadata},
+            upsert=True
+        )
+        logger.debug(f"💾 Dataset {session_id} salvo no MongoDB")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar dataset no MongoDB: {e}")
+        return False
+
+def load_session_from_db(session_id: str):
+    """Carrega sessão do MongoDB"""
+    if database is None:
+        return None
+    
+    try:
+        session = database.sessions.find_one({"session_id": session_id})
+        return session
+    except Exception as e:
+        logger.error(f"❌ Erro ao carregar sessão do MongoDB: {e}")
+        return None
 
 # Modelos de dados
 class ChatMessage(BaseModel):
@@ -459,6 +593,12 @@ async def load_sample_file(filename: str):
             "created_at": datetime.now()
         }
         
+        # Salvar no MongoDB se disponível
+        if database is not None:
+            save_dataset_to_db(session_id, datasets_storage[session_id])
+            save_session_to_db(session_id, sessions_storage[session_id])
+            logger.info(f"📊 Sessão {session_id} salva no MongoDB")
+        
         # Análise inicial automática
         initial_analysis = await ask_ai(
             "Faça uma análise inicial deste dataset, destacando pontos importantes",
@@ -537,6 +677,12 @@ async def upload_csv(file: UploadFile = File(...)):
             "conversation_history": [],
             "created_at": datetime.now()
         }
+        
+        # Salvar no MongoDB se disponível
+        if database is not None:
+            save_dataset_to_db(session_id, datasets_storage[session_id])
+            save_session_to_db(session_id, sessions_storage[session_id])
+            logger.info(f"📊 Sessão {session_id} salva no MongoDB")
         
         # Análise inicial
         initial_analysis = await ask_ai(
@@ -651,6 +797,11 @@ async def chat_with_data(message: ChatMessage):
             "insights": insights,
             "timestamp": datetime.now()
         })
+        
+        # Atualizar no MongoDB se disponível
+        if database is not None:
+            save_session_to_db(session_id, sessions_storage[session_id])
+            logger.debug(f"💬 Conversa atualizada no MongoDB")
         
         return AnalysisResponse(
             response=ai_response,
