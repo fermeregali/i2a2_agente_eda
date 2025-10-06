@@ -909,6 +909,11 @@ async def root():
         ]
     }
 
-# Handler para Vercel
-def handler(request):
-    return app(request)
+# Handler para Vercel - Mangum converte ASGI (FastAPI) para AWS Lambda/Vercel
+try:
+    from mangum import Mangum
+    handler = Mangum(app, lifespan="off")
+except ImportError:
+    # Fallback se Mangum não estiver instalado
+    logger.warning("⚠️ Mangum não encontrado - usando handler básico")
+    handler = app
