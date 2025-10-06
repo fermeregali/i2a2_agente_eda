@@ -24,7 +24,7 @@ Sua chave foi exposta (mas não foi commitada no GitHub). Por segurança, é rec
 
 1. **Acesse:** https://console.groq.com/keys
 2. **Revogue a chave antiga:**
-   - Encontre a chave: `gsk_9SBH...i9rf`
+   - Encontre a chave antiga (veja config.env local)
    - Clique em "Delete" ou "Revoke"
 3. **Crie uma nova chave:**
    - Clique em "Create API Key"
