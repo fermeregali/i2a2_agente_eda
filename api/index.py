@@ -21,6 +21,10 @@ from datetime import datetime
 import logging
 from pathlib import Path
 
+# Configurar logging PRIMEIRO (antes de usar logger)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Banco de dados - MongoDB se estiver disponível
 try:
     from dotenv import load_dotenv
@@ -45,10 +49,6 @@ try:
 except Exception as e:
     MONGODB_AVAILABLE = False
     logger.warning(f"⚠️ Erro ao configurar MongoDB: {e} - usando armazenamento em memória")
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Criar a aplicação FastAPI
 app = FastAPI(
