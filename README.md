@@ -31,16 +31,16 @@ Este é um **Agente de IA para Análise Exploratória de Dados (EDA)** desenvolv
 - **Frontend**: React - Interface de usuário responsiva
 - **IA**: Groq (DeepSeek R1) - Análises inteligentes contextualizadas
 - **Banco**: MongoDB - Armazenamento de sessões e histórico
-- **Visualizações**: Matplotlib + Seaborn - Gráficos de alta qualidade
-- **Análise**: Pandas + NumPy + Scikit-learn - Processamento de dados
+- **Visualizações**: Plotly.js - Gráficos interativos
+- **Análise**: Pandas + NumPy - Processamento de dados
 
 ### Estrutura do Projeto
 
 ```text
 agente-eda/
-├── main.py                 # API FastAPI principal
-├── requirements.txt        # Dependências Python
-├── config.env             # Configurações
+├── api/
+│   ├── index.py           # API FastAPI principal
+│   └── requirements.txt   # Dependências Python
 ├── src/                   # Frontend React
 │   ├── App.js             # Componente React principal
 │   ├── App.css            # Estilos
@@ -52,60 +52,114 @@ agente-eda/
 ├── sample_data/           # Datasets de exemplo
 │   └── creditcard_sample.csv
 ├── package.json           # Dependências Node.js
-├── package-lock.json      # Lock file das dependências
-├── install.sh            # Script de instalação
-├── LICENSE               # Licença MIT
-└── README.md             # Este arquivo
+├── amplify.yml            # Configuração AWS Amplify
+├── config.env             # Variáveis de ambiente (não commitar)
+├── .gitignore             # Arquivos ignorados
+├── LICENSE                # Licença MIT
+└── README.md              # Este arquivo
 ```
 
-## 🚀 Instalação e Uso
+## 🚀 Deploy na AWS Amplify
+
+### Pré-requisitos
+
+- Conta AWS
+- Repositório Git (GitHub, GitLab ou Bitbucket)
+- Chave API do Groq
+- MongoDB Atlas ou MongoDB configurado
+
+### Passos para Deploy
+
+1. **Push do código para repositório Git**
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin <seu-repositorio>
+git push -u origin main
+```
+
+2. **Configurar AWS Amplify**
+   - Acesse o console AWS Amplify
+   - Clique em "New App" > "Host web app"
+   - Conecte seu repositório Git
+   - Selecione a branch principal
+
+3. **Configurar Build Settings**
+   - O Amplify detectará automaticamente o `amplify.yml`
+   - Configuração já está otimizada para React + FastAPI
+
+4. **Configurar Variáveis de Ambiente**
+   No console do Amplify, adicione:
+   - `USE_MONGODB`: `true` ou `false`
+   - `MONGO_URL`: URL do MongoDB Atlas
+   - `DB_NAME`: Nome do banco de dados
+   - `CORS_ORIGINS`: `*` ou domínios específicos
+   - `GROQ_API_KEY`: Sua chave da API Groq
+
+5. **Deploy**
+   - Clique em "Save and deploy"
+   - Aguarde o build e deploy automático
+
+### Variáveis de Ambiente Necessárias
+
+```bash
+USE_MONGODB=true
+MONGO_URL=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
+DB_NAME=agente_eda_db
+CORS_ORIGINS=*
+GROQ_API_KEY=sua_chave_groq_aqui
+```
+
+## 💻 Desenvolvimento Local
 
 ### Pré-requisitos
 
 - Python 3.8+
 - Node.js 16+
-- MongoDB (opcional - funciona sem)
+- MongoDB (opcional)
 
-### Instalação Rápida
+### Instalação
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/fermeregali/i2a2_agente_eda
+git clone <seu-repositorio>
+cd agente-eda
 
-# 2. Instalação automática
-./install.sh
+# 2. Backend
+cd api
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 
-# 3. Executar o sistema
+# 3. Frontend
+cd ..
+npm install
+
+# 4. Configurar variáveis de ambiente
+cp config.env.example config.env
+# Editar config.env com suas credenciais
+```
+
+### Executar Localmente
+
+```bash
 # Terminal 1 - Backend
+cd api
 source venv/bin/activate
-python main.py
+uvicorn index:app --reload --port 8000
 
 # Terminal 2 - Frontend
 npm start
-
-# 4. Acessar: http://localhost:3000
 ```
 
-### Instalação Manual
-
-```bash
-# Backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Frontend
-npm install
-
-# Configuração (opcional)
-# Edite config.env com suas configurações
-```
+Acesse: http://localhost:3000
 
 ## 💡 Como Usar
 
 ### 1. Upload de Dataset
 
-- Acesse <http://localhost:3000>
+- Acesse a aplicação
 - Arraste e solte seu arquivo CSV
 - Aguarde a análise inicial automática
 
@@ -128,19 +182,11 @@ O sistema gera gráficos automaticamente:
 - Scatter plots para relações
 - Box plots para outliers
 
-## 🧪 Testes
-
-```bash
-# Testes manuais via API
-curl http://localhost:8000/api/health
-```
-
 ## 📊 Exemplos de Uso
 
 ### Dataset de Fraude de Cartão
 
 ```python
-# Exemplo de análise automática
 Pergunta: "Faça uma análise geral do dataset"
 
 Resposta: "Baseado na análise do dataset carregado:
@@ -153,7 +199,6 @@ Resposta: "Baseado na análise do dataset carregado:
 ### Análise de Correlações
 
 ```python
-# Geração automática de heatmap
 Pergunta: "Mostre a correlação entre as variáveis"
 
 Resposta: "Identificadas correlações significativas:
@@ -162,25 +207,6 @@ Resposta: "Identificadas correlações significativas:
 - Amount e V7: r = 0.42 (moderada)"
 ```
 
-## 🔧 Configuração
-
-### Variáveis de Ambiente
-
-```bash
-# config.env
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=agente_eda_db
-CORS_ORIGINS=http://localhost:3000
-GROQ_API_KEY=sua_chave_groq_aqui
-```
-
-### Personalização
-
-- Modifique `main.py` para ajustar análises
-- Edite `src/App.js` para customizar interface
-- Configure `requirements.txt` para dependências Python
-- Configure `package.json` para dependências React
-
 ## 📈 Funcionalidades Avançadas
 
 ### Análise Estatística
@@ -188,14 +214,7 @@ GROQ_API_KEY=sua_chave_groq_aqui
 - Estatísticas descritivas completas
 - Detecção de outliers (método IQR)
 - Análise de distribuições
-- Testes de normalidade
-
-### Machine Learning
-
 - Análise de correlações
-- Detecção de padrões
-- Sugestões de features
-- Validação de dados
 
 ### Visualizações
 
@@ -229,10 +248,16 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para de
 - Groq pela API DeepSeek R1 Distill Llama 70B
 - FastAPI pela framework moderna
 - React pela interface de usuário
+- AWS Amplify pela plataforma de hosting
 - Comunidade Python pela excelente ecossistema
 
-## 📚 Documentação Adicional
+## 🆘 Suporte
 
-- [API Documentation](http://localhost:8000/docs) - Documentação interativa da API
+Para problemas ou dúvidas:
+- Abra uma issue no GitHub
+- Consulte a documentação da [AWS Amplify](https://docs.amplify.aws/)
+- Consulte a documentação da [API Groq](https://console.groq.com/docs)
 
 ---
+
+**Desenvolvido com ❤️ para análise inteligente de dados**

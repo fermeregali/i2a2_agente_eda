@@ -1,0 +1,26 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - '# Install Python dependencies'
+        - pip3 install -r api/requirements.txt --target ./api/dependencies
+        - '# Create API directory structure'
+        - mkdir -p api/lib
+        - cp -r api/dependencies/* api/lib/ || true
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: build
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+

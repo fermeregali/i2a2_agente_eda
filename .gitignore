@@ -139,4 +139,12 @@ dmypy.json
 # Temporary files
 *.tmp
 *.temp
+
+# AWS Amplify
+amplify/
+.amplify/
+amplify-backup/
+amplify-build-config.json
+
+# Vercel (deprecated)
 .vercel
