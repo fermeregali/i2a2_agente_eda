@@ -1,0 +1,46 @@
+services:
+  # Backend API (FastAPI)
+  - type: web
+    name: agente-eda-api
+    runtime: python
+    plan: free
+    buildCommand: "cd api && pip install -r requirements.txt"
+    startCommand: "cd api && uvicorn index:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: USE_MONGODB
+        value: true
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: agente_eda_db
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /api/health
+    
+  # Frontend (React)
+  - type: web
+    name: agente-eda-frontend
+    runtime: static
+    plan: free
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: ./build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: agente-eda-api
+          property: host
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://agente-eda-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+
+

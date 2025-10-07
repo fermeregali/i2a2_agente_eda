@@ -1,6 +1,6 @@
 """
 Agente Inteligente para Análise de Dados - EDA Automático
-Versão otimizada para Vercel (sem dependências pesadas de visualização)
+API FastAPI para análise exploratória de dados com IA
 """
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -60,23 +60,12 @@ app = FastAPI(
 # Configurar CORS para o frontend conseguir acessar
 cors_origins_env = os.getenv("CORS_ORIGINS", "*")
 if cors_origins_env == "*":
-    # Permitir todas as origens em modo de debug
+    # Permitir todas as origens
     cors_origins = ["*"]
     logger.info("CORS configurado para aceitar todas as origens (*)")
 else:
     # Usar origens específicas da variável de ambiente
     cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
-    # Adicionar URLs automáticas da Vercel
-    if "VERCEL_URL" in os.environ:
-        vercel_url = f"https://{os.environ['VERCEL_URL']}"
-        if vercel_url not in cors_origins:
-            cors_origins.append(vercel_url)
-            logger.info(f"Adicionado VERCEL_URL ao CORS: {vercel_url}")
-    if "VERCEL_BRANCH_URL" in os.environ:
-        branch_url = f"https://{os.environ['VERCEL_BRANCH_URL']}"
-        if branch_url not in cors_origins:
-            cors_origins.append(branch_url)
-            logger.info(f"Adicionado VERCEL_BRANCH_URL ao CORS: {branch_url}")
     logger.info(f"CORS configurado com origens: {cors_origins}")
 
 app.add_middleware(
@@ -909,11 +898,5 @@ async def root():
         ]
     }
 
-# Handler para Vercel - Mangum converte ASGI (FastAPI) para AWS Lambda/Vercel
-try:
-    from mangum import Mangum
-    handler = Mangum(app, lifespan="off")
-except ImportError:
-    # Fallback se Mangum não estiver instalado
-    logger.warning("⚠️ Mangum não encontrado - usando handler básico")
-    handler = app
+# Handler padrão para a aplicação
+handler = app
