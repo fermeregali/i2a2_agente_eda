@@ -1,0 +1,47 @@
+# Ignorar arquivos desnecessários no Docker build
+
+# Frontend (não deve estar na imagem Docker)
+src/
+public/
+node_modules/
+package.json
+package-lock.json
+build/
+amplify.yml
+.amplify/
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment
+.env
+.env.*
+config.env
+venv/
+__pycache__/
+
+# Documentation
+*.md
+CHANGELOG*.md
+SOLUCAO*.md
+FIX*.md
+GUIA*.md
+DEPLOY*.md
+
+# Sample data (opcional - pode remover se quiser incluir)
+sample_data/
+
+# Configs desnecessários
+railway.json
+Procfile
+runtime.txt
+nixpacks.toml
+.railwayignore
+.nixpacksignore
