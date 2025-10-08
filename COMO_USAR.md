@@ -41,7 +41,6 @@ Acesse: **http://localhost:3000**
 | `start-backend.sh` | Inicia backend local |
 | `start-frontend.sh` | Inicia frontend local |
 | `TEST_LOCAL.md` | Guia detalhado de testes |
-| `DEPLOY_AWS_AMPLIFY.md` | Deploy no Amplify |
 | `README.md` | Documentação completa |
 | `config.env.example` | Template de configuração |
 
