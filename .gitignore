@@ -30,6 +30,8 @@ venv.bak/
 
 # Environment variables
 .env
+.env.local
+.env.production
 config.env
 
 # IDE

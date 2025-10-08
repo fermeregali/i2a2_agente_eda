@@ -207,9 +207,11 @@ function App() {
   const chatContainerRef = useRef(null);
 
   // Configurar axios base URL
-  const apiUrl = process.env.NODE_ENV === 'production' 
-    ? window.location.origin 
-    : process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  // IMPORTANTE: Prioriza REACT_APP_BACKEND_URL para usar backend separado
+  const apiUrl = process.env.REACT_APP_BACKEND_URL || 
+    (process.env.NODE_ENV === 'production' 
+      ? window.location.origin 
+      : 'http://localhost:8000');
   axios.defaults.baseURL = apiUrl;
 
   // Log de configuração (útil para debug)
