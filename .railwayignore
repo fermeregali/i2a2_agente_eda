@@ -1,0 +1,28 @@
+# Ignorar frontend (React) - Railway deve buildar apenas backend Python
+
+# Frontend files
+src/
+public/
+node_modules/
+package.json
+package-lock.json
+build/
+
+# Frontend configs
+.amplify/
+amplify.yml
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/
+.github/
+
+# IDE
+.vscode/
+.idea/
+
+# Samples
+sample_data/
